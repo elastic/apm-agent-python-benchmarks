@@ -1,0 +1,5 @@
+click==6.7
+elasticsearch==6.3.0
+perf==1.5.1
+six==1.11.0
+urllib3==1.23
