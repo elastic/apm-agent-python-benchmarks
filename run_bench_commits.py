@@ -93,8 +93,8 @@ def upload_benchmark(es_url, es_user, es_password, files):
                 "_index": "benchmark-agent-python-"
                 + meta["timestamp"].split("T")[0].rsplit("-", 1)[0],
                 "@timestamp": meta.pop("timestamp"),
+                "benchmark_class": meta["name"].rsplit(".", 1)[0],
                 "benchmark": meta.pop("name"),
-                "benchmark_class": meta.pop("name").rsplit(".", 1)[0],
                 "meta": meta,
                 "runs": {
                     "calibration": ncalibration_runs,
@@ -184,7 +184,7 @@ def run(
         json_files.extend(files)
     if delete_repo:
         shutil.rmtree(worktree)
-    if delete_output:
+    if delete_output_files:
         for file in json_files:
             os.unlink(file)
 
