@@ -3,3 +3,4 @@ elasticsearch==6.3.0
 pyperf==1.6.1
 six==1.11.0
 urllib3==1.25.6
+certifi==2019.9.11

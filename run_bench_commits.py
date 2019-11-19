@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 
 import click
 
@@ -57,7 +58,7 @@ def run_benchmark(commit_hash, worktree):
             "-o",
             output_file,
             "--inherit-environ",
-            "COMMIT_TIMESTAMP,COMMIT_SHA,COMMIT_MESSAGE,COMMIT_MESSAGE,PYTHONPATH",
+            "COMMIT_TIMESTAMP,COMMIT_SHA,COMMIT_MESSAGE,PYTHONPATH",
         ]
         if flag:
             test_cmd.append(flag)
@@ -90,6 +91,11 @@ def upload_benchmark(es_url, es_user, es_password, files):
             total_loops = loops * inner_loops
             meta = bench.get_metadata()
             meta["start_date"] = bench.get_dates()[0].isoformat(" ")
+            if meta["unit"] == "second":
+                meta["unit"] = "milliseconds"
+                result_factor = 1000
+            else:
+                result_factor = 1
             output = {
                 "_index": "benchmark-agent-python-" + meta["timestamp"].split("T")[0],
                 "@timestamp": meta.pop("timestamp"),
@@ -102,20 +108,14 @@ def upload_benchmark(es_url, es_user, es_password, files):
                 },
                 "warmups_per_run": bench._get_nwarmup(),
                 "values_per_run": bench._get_nvalue_per_run(),
-                "median": bench.median(),
-                "median_abs_dev": bench.median_abs_dev(),
-                "mean": bench.mean(),
-                "mean_std_dev": bench.stdev(),
-                "primaryMetric": {
-                    "score": bench.mean(),
-                    "stdev": bench.stdev(),
-                    "scorePercentiles": {},
-                },
+                "median": bench.median() * result_factor,
+                "median_abs_dev": bench.median_abs_dev() * result_factor,
+                "mean": bench.mean() * result_factor,
+                "mean_std_dev": bench.stdev() * result_factor,
+                "percentiles": {},
             }
-            for p in (0, 5, 25, 50, 75, 95, 100):
-                output["primaryMetric"]["scorePercentiles"][
-                    "%.1f" % p
-                ] = bench.percentile(p)
+            for p in (0, 5, 25, 50, 75, 95, 99, 100):
+                output["percentiles"]["%.1f" % p] = bench.percentile(p) * result_factor
             result.append(output)
     for b in result:
         es.index(doc_type="doc", body=b, index=b.pop("_index"))
@@ -144,7 +144,10 @@ def upload_benchmark(es_url, es_user, es_password, files):
 @click.option(
     "--es-password", default=None, help="Elasticsearch Password", envvar="ES_PASSWORD"
 )
-def run(worktree, start_commit, end_commit, clone_url, es_url, es_user, es_password):
+@click.option("--delete", default=False, help="Delete benchmark files")
+def run(
+    worktree, start_commit, end_commit, clone_url, es_url, es_user, es_password, delete
+):
     cloned = False
     if clone_url:
         if os.path.exists(worktree):
@@ -165,6 +168,9 @@ def run(worktree, start_commit, end_commit, clone_url, es_url, es_user, es_passw
         shutil.rmtree(worktree)
     if es_url:
         upload_benchmark(es_url, es_user, es_password, json_files)
+    if delete:
+        for file in json_files:
+            os.unlink(file)
 
 
 if __name__ == "__main__":
