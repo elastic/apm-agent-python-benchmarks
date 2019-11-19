@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import sys
 
 import click
 
@@ -31,15 +30,7 @@ def get_commit_list(start_commit, end_commit, worktree):
 def run_benchmark(commit_hash, worktree):
     # clean up from former runs
     if commit_hash:
-        subprocess.check_output(["git", "checkout", "elasticapm/base.py"], cwd=worktree)
         subprocess.check_output(["git", "checkout", commit_hash], cwd=worktree)
-        # set the timer thread to daemon, this fixes an issue with the timer thread
-        # not exiting in old commits
-        subprocess.check_output(
-            "sed -i '' -e 's/self\._send_timer\.start/self\._send_timer\.daemon=True; self\._send_timer\.start/g' elasticapm/base.py",
-            shell=True,
-            cwd=worktree,
-        )
     env = dict(**os.environ)
     env["PYTHONPATH"] = worktree
     env["COMMIT_TIMESTAMP"], env["COMMIT_SHA"], env["COMMIT_MESSAGE"] = (
@@ -68,8 +59,6 @@ def run_benchmark(commit_hash, worktree):
             ).decode()
         )
         output_files.append(output_file)
-    if commit_hash:
-        subprocess.check_output(["git", "checkout", "elasticapm/base.py"], cwd=worktree)
     return output_files
 
 
@@ -175,11 +164,12 @@ def run(
                     commit[:8], i + 1, len(commits)
                 )
             )
-        json_files.extend(run_benchmark(commit, worktree))
+        files = run_benchmark(commit, worktree)
+        if es_url:
+            upload_benchmark(es_url, es_user, es_password, files)
+        json_files.extend(files)
     if cloned:
         shutil.rmtree(worktree)
-    if es_url:
-        upload_benchmark(es_url, es_user, es_password, json_files)
     if delete:
         for file in json_files:
             os.unlink(file)
