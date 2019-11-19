@@ -97,7 +97,8 @@ def upload_benchmark(es_url, es_user, es_password, files):
             else:
                 result_factor = 1
             output = {
-                "_index": "benchmark-agent-python-" + meta["timestamp"].split("T")[0],
+                "_index": "benchmark-agent-python-"
+                + meta["timestamp"].split("T")[0].rsplit("-", 1)[0],
                 "@timestamp": meta.pop("timestamp"),
                 "benchmark": meta.pop("name"),
                 "benchmark_class": meta.pop("name").rsplit(".", 1)[0],
