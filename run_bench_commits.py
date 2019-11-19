@@ -62,7 +62,11 @@ def run_benchmark(commit_hash, worktree):
         ]
         if flag:
             test_cmd.append(flag)
-        print(subprocess.check_output(test_cmd, stderr=subprocess.STDOUT, env=env))
+        print(
+            subprocess.check_output(
+                test_cmd, stderr=subprocess.STDOUT, env=env
+            ).decode()
+        )
         output_files.append(output_file)
     if commit_hash:
         subprocess.check_output(["git", "checkout", "elasticapm/base.py"], cwd=worktree)
@@ -164,7 +168,13 @@ def run(
     else:
         commits = [None]
     json_files = []
-    for commit in commits:
+    for i, commit in enumerate(commits):
+        if len(commits) > 1:
+            print(
+                "Running bench for commit {} ({} of {})".format(
+                    commit[:8], i + 1, len(commits)
+                )
+            )
         json_files.extend(run_benchmark(commit, worktree))
     if cloned:
         shutil.rmtree(worktree)
