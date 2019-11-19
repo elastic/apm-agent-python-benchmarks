@@ -155,7 +155,7 @@ def run(
     es_url,
     es_user,
     es_password,
-    delete_output,
+    delete_output_files,
     delete_repo,
 ):
     if clone_url:
@@ -179,6 +179,7 @@ def run(
             )
         files = run_benchmark(commit, worktree)
         if es_url:
+            print("Uploading bench for commit {}".format(commit[:8]))
             upload_benchmark(es_url, es_user, es_password, files)
         json_files.extend(files)
     if delete_repo:

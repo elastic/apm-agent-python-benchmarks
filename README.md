@@ -40,15 +40,18 @@ and send the result to Elasticsearch:
     Usage: run_bench_commits.py [OPTIONS]
     
     Options:
-      --worktree PATH         worktree of elastic-apm to run benchmarks in
-                              [required]
-      --start-commit TEXT     first commit to benchmark. If left empty, current
-                              worktree state will be benchmarked
-      --end-commit TEXT       last commit to benchmark. If left empty, only start-
-                              commit will be benchmarked
-      --clone-url TEXT        Git URL to clone
-      --es-url TEXT           Elasticsearch URL
-      --es-user TEXT          Elasticsearch User
-      --es-password TEXT      Elasticsearch Password
-      --delete / --no-delete  Delete benchmark files
-      --help                  Show this message and exit.
+      --worktree PATH                 worktree of elastic-apm to run benchmarks in
+                                      [required]
+      --start-commit TEXT             first commit to benchmark. If left empty,
+                                      current worktree state will be benchmarked
+      --end-commit TEXT               last commit to benchmark. If left empty,
+                                      only start-commit will be benchmarked
+      --clone-url TEXT                Git URL to clone
+      --es-url TEXT                   Elasticsearch URL
+      --es-user TEXT                  Elasticsearch User
+      --es-password TEXT              Elasticsearch Password
+      --delete-output-files / --no-delete-output-files
+                                      Delete benchmark files
+      --delete-repo / --no-delete-repo
+                                      Delete repo after run
+      --help                          Show this message and exit.
