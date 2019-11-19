@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 import subprocess
 
@@ -22,27 +23,39 @@ def get_commit_list(start_commit, end_commit, worktree):
     commits = subprocess.check_output(
         ["git", "log", "--pretty=%h", commit_range], cwd=worktree
     ).decode("utf8")
-    commits = commits.split("\n")[:-1]
+    commit_hashes = commits.split("\n")[:-1]
+    commits = []
+    for hash in commit_hashes:
+        timestamp, _, commit_message = (
+            subprocess.check_output(
+                ["git", "log", hash, "-1", "--pretty=%aI\t%H\t%B"], cwd=worktree
+            )
+            .decode("utf8")
+            .split("\t", 2)
+        )
+        commits.append(
+            {
+                "sha": hash,
+                "@timestamp": timestamp,
+                "commit_title": commit_message.split("/n")[0],
+                "commit_message": commit_message,
+            }
+        )
     commits.reverse()
     return commits
 
 
-def run_benchmark(commit_hash, worktree):
-    # clean up from former runs
-    if commit_hash:
-        subprocess.check_output(["git", "checkout", commit_hash], cwd=worktree)
+def run_benchmark(commit_info, worktree):
+    if commit_info:
+        subprocess.check_output(["git", "checkout", commit_info["sha"]], cwd=worktree)
     env = dict(**os.environ)
     env["PYTHONPATH"] = worktree
-    env["COMMIT_TIMESTAMP"], env["COMMIT_SHA"], env["COMMIT_MESSAGE"] = (
-        subprocess.check_output(
-            ["git", "log", "-1", "--pretty=%aI\t%H\t%B"], cwd=worktree
-        )
-        .decode("utf8")
-        .split("\t", 2)
-    )
+    env["COMMIT_TIMESTAMP"] = commit_info["@timestamp"]
+    env["COMMIT_SHA"] = commit_info["sha"]
+    env["COMMIT_MESSAGE"] = commit_info["commit_title"]
     output_files = []
     for bench_type, flag in (("time", None), ("tracemalloc", "--tracemalloc")):
-        output_file = "result.%s.%s.json" % (bench_type, commit_hash)
+        output_file = "result.%s.%s.json" % (bench_type, commit_info["sha"])
         test_cmd = [
             "python",
             "run_bench.py",
@@ -62,7 +75,7 @@ def run_benchmark(commit_hash, worktree):
     return output_files
 
 
-def upload_benchmark(es_url, es_user, es_password, files):
+def upload_benchmark(es_url, es_user, es_password, files, commit_info):
     if "@" not in es_url and es_user:
         parts = urlparse(es_url)
         es_url = "%s://%s:%s@%s%s" % (
@@ -89,12 +102,15 @@ def upload_benchmark(es_url, es_user, es_password, files):
                 result_factor = 1000
             else:
                 result_factor = 1
+            full_name = meta.pop("name")
+            class_name = full_name.rsplit(".", 1)[0]
+            short_name = class_name.rsplit(".", 1)[0]
             output = {
-                "_index": "benchmark-agent-python-"
-                + meta["timestamp"].split("T")[0].rsplit("-", 1)[0],
+                "_index": "benchmark-python",
                 "@timestamp": meta.pop("timestamp"),
-                "benchmark_class": meta["name"].rsplit(".", 1)[0],
-                "benchmark": meta.pop("name"),
+                "benchmark_class": class_name,
+                "benchmark_short_name": short_name,
+                "benchmark": full_name,
                 "meta": meta,
                 "runs": {
                     "calibration": ncalibration_runs,
@@ -113,7 +129,19 @@ def upload_benchmark(es_url, es_user, es_password, files):
                 output["percentiles"]["%.1f" % p] = bench.percentile(p) * result_factor
             result.append(output)
     for b in result:
-        es.index(doc_type="doc", body=b, index=b.pop("_index"))
+        es.index(body=b, index=b.pop("_index"))
+    es.update(
+        index="benchmark-py-commits",
+        id=commit_info["sha"],
+        body={
+            "doc": {
+                "@timestamp": commit_info["@timestamp"],
+                "commit_title": commit_info["commit_title"].split("\n")[0],
+                "commit_message": commit_info["commit_message"],
+            },
+            "doc_as_upsert": True,
+        },
+    )
 
 
 @click.command()
@@ -147,6 +175,9 @@ def upload_benchmark(es_url, es_user, es_password, files):
 @click.option(
     "--delete-repo/--no-delete-repo", default=False, help="Delete repo after run"
 )
+@click.option(
+    "--randomize/--no-randomize", default=True, help="Randomize order of commits"
+)
 def run(
     worktree,
     start_commit,
@@ -157,6 +188,7 @@ def run(
     es_password,
     delete_output_files,
     delete_repo,
+    randomize,
 ):
     if clone_url:
         if not os.path.exists(worktree):
@@ -170,23 +202,34 @@ def run(
     else:
         commits = [None]
     json_files = []
+    failed = []
+    if randomize:
+        random.shuffle(commits)
     for i, commit in enumerate(commits):
         if len(commits) > 1:
             print(
                 "Running bench for commit {} ({} of {})".format(
-                    commit[:8], i + 1, len(commits)
+                    commit["sha"][:8], i + 1, len(commits)
                 )
             )
-        files = run_benchmark(commit, worktree)
-        if es_url:
-            print("Uploading bench for commit {}".format(commit[:8]))
-            upload_benchmark(es_url, es_user, es_password, files)
-        json_files.extend(files)
+        try:
+            files = run_benchmark(commit, worktree)
+            if es_url:
+                print("Uploading bench for commit {}".format(commit["sha"][:8]))
+                upload_benchmark(es_url, es_user, es_password, files, commit)
+            json_files.extend(files)
+        except Exception:
+            failed.append(commit["sha"])
     if delete_repo:
         shutil.rmtree(worktree)
     if delete_output_files:
         for file in json_files:
             os.unlink(file)
+    if failed:
+        print("Failed commits: \n")
+        for commit in failed:
+            print(commit)
+        print()
 
 
 if __name__ == "__main__":

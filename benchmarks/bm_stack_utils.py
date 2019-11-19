@@ -1,24 +1,27 @@
 import os
 
-from elasticapm.utils.stacks import get_lines_from_file, iter_stack_frames, get_frame_info
+from elasticapm.utils.stacks import (get_frame_info, get_lines_from_file,
+                                     iter_stack_frames)
 
-FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'fixtures', 'lines.txt')
+FILE_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "fixtures", "lines.txt"
+)
 
 
 def bench_get_lines_from_file_start():
-    if hasattr(get_lines_from_file, 'cache_clear'):
+    if hasattr(get_lines_from_file, "cache_clear"):
         get_lines_from_file.cache_clear()
     pre, context, post = get_lines_from_file(FILE_PATH, 1, 5)
 
 
 def bench_get_lines_from_file_middle():
-    if hasattr(get_lines_from_file, 'cache_clear'):
+    if hasattr(get_lines_from_file, "cache_clear"):
         get_lines_from_file.cache_clear()
     pre, context, post = get_lines_from_file(FILE_PATH, 250, 5)
 
 
 def bench_get_lines_from_file_end():
-    if hasattr(get_lines_from_file, 'cache_clear'):
+    if hasattr(get_lines_from_file, "cache_clear"):
         get_lines_from_file.cache_clear()
     pre, context, post = get_lines_from_file(FILE_PATH, 500, 5)
 
