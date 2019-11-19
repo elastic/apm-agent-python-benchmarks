@@ -139,16 +139,29 @@ def upload_benchmark(es_url, es_user, es_password, files):
 @click.option(
     "--es-password", default=None, help="Elasticsearch Password", envvar="ES_PASSWORD"
 )
-@click.option("--delete", default=False, help="Delete benchmark files")
+@click.option(
+    "--delete-output-files/--no-delete-output-files",
+    default=False,
+    help="Delete benchmark files",
+)
+@click.option(
+    "--delete-repo/--no-delete-repo", default=False, help="Delete repo after run"
+)
 def run(
-    worktree, start_commit, end_commit, clone_url, es_url, es_user, es_password, delete
+    worktree,
+    start_commit,
+    end_commit,
+    clone_url,
+    es_url,
+    es_user,
+    es_password,
+    delete_output,
+    delete_repo,
 ):
-    cloned = False
     if clone_url:
-        if os.path.exists(worktree):
-            raise click.UsageError("%s exists, can't clone" % worktree)
-        subprocess.check_output(["git", "clone", clone_url, worktree])
-        cloned = True
+        if not os.path.exists(worktree):
+            subprocess.check_output(["git", "clone", clone_url, worktree])
+    subprocess.check_output(["git", "fetch"], cwd=worktree)
     if start_commit:
         if end_commit:
             commits = get_commit_list(start_commit, end_commit, worktree)
@@ -168,9 +181,9 @@ def run(
         if es_url:
             upload_benchmark(es_url, es_user, es_password, files)
         json_files.extend(files)
-    if cloned:
+    if delete_repo:
         shutil.rmtree(worktree)
-    if delete:
+    if delete_output:
         for file in json_files:
             os.unlink(file)
 
