@@ -56,14 +56,16 @@ def get_commit_list(start_commit, end_commit, worktree):
     return commits
 
 
-def run_benchmark(commit_info, worktree, timing, tracemalloc):
+def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern):
     if commit_info:
         subprocess.check_output(["git", "checkout", commit_info["sha"]], cwd=worktree)
     env = dict(**os.environ)
     env["PYTHONPATH"] = worktree
     env["COMMIT_TIMESTAMP"] = commit_info["@timestamp"]
     env["COMMIT_SHA"] = commit_info["sha"]
-    env["COMMIT_MESSAGE"] = commit_info["commit_title"]
+    env["COMMIT_MESSAGE"] = commit_info["title"]
+    if pattern:
+        env["BENCH_PATTERN"] = pattern
     output_files = []
     benches = []
     if timing:
@@ -78,7 +80,7 @@ def run_benchmark(commit_info, worktree, timing, tracemalloc):
             "-o",
             output_file,
             "--inherit-environ",
-            "COMMIT_TIMESTAMP,COMMIT_SHA,COMMIT_MESSAGE,PYTHONPATH",
+            "COMMIT_TIMESTAMP,COMMIT_SHA,COMMIT_MESSAGE,PYTHONPATH,BENCH_PATTERN",
         ]
         if flag:
             test_cmd.append(flag)
@@ -200,6 +202,11 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info):
 @click.option(
     "--tracemalloc/--no-tracemalloc", default=True, help="Run tracemalloc benchmarks"
 )
+@click.option(
+    "--bench-pattern",
+    default=None,
+    help="An optional glob pattern to filter benchmarks by",
+)
 def run(
     worktree,
     start_commit,
@@ -213,6 +220,7 @@ def run(
     randomize,
     timing,
     tracemalloc,
+    bench_pattern,
 ):
     if clone_url:
         if not os.path.exists(worktree):
@@ -232,12 +240,13 @@ def run(
                 )
             )
         try:
-            files = run_benchmark(commit, worktree, timing, tracemalloc)
+            files = run_benchmark(commit, worktree, timing, tracemalloc, bench_pattern)
             if es_url:
                 print("Uploading bench for commit {}".format(commit["sha"][:8]))
                 upload_benchmark(es_url, es_user, es_password, files, commit)
             json_files.extend(files)
         except Exception:
+            raise
             failed.append(commit["sha"])
     if delete_repo:
         shutil.rmtree(worktree)

@@ -1,3 +1,4 @@
+import fnmatch
 import importlib
 import operator
 import os
@@ -25,6 +26,7 @@ def run():
         metadata["revision"] = os.environ.get("COMMIT_SHA")
         metadata["commit_message"] = os.environ.get("COMMIT_MESSAGE").split("\n")[0]
     runner = pyperf.Runner(metadata=metadata)
+    pattern = os.environ.get("BENCH_PATTERN")
 
     args = runner.parse_args()
     if args.tracemalloc:
@@ -35,7 +37,8 @@ def run():
         bench_type = "time"
     for func in discover_benchmarks():
         name = "%s.%s.%s" % (str(func.__module__), func.__name__, bench_type)
-        runner.bench_func(name, func)
+        if not pattern or fnmatch.fnmatch(name, pattern):
+            runner.bench_func(name, func)
 
 
 if __name__ == "__main__":

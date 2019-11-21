@@ -58,4 +58,6 @@ and send the result to Elasticsearch:
       --timing / --no-timing          Run timing benchmarks
       --tracemalloc / --no-tracemalloc
                                       Run tracemalloc benchmarks
+      --bench-pattern TEXT            An optional glob pattern to filter
+                                      benchmarks by
       --help                          Show this message and exit.
