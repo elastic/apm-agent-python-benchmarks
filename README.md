@@ -54,4 +54,8 @@ and send the result to Elasticsearch:
                                       Delete benchmark files
       --delete-repo / --no-delete-repo
                                       Delete repo after run
+      --randomize / --no-randomize    Randomize order of commits
+      --timing / --no-timing          Run timing benchmarks
+      --tracemalloc / --no-tracemalloc
+                                      Run tracemalloc benchmarks
       --help                          Show this message and exit.

@@ -56,7 +56,7 @@ def get_commit_list(start_commit, end_commit, worktree):
     return commits
 
 
-def run_benchmark(commit_info, worktree):
+def run_benchmark(commit_info, worktree, timing, tracemalloc):
     if commit_info:
         subprocess.check_output(["git", "checkout", commit_info["sha"]], cwd=worktree)
     env = dict(**os.environ)
@@ -65,7 +65,12 @@ def run_benchmark(commit_info, worktree):
     env["COMMIT_SHA"] = commit_info["sha"]
     env["COMMIT_MESSAGE"] = commit_info["commit_title"]
     output_files = []
-    for bench_type, flag in (("time", None), ("tracemalloc", "--tracemalloc")):
+    benches = []
+    if timing:
+        benches.append(("time", None))
+    if tracemalloc:
+        benches.append(("tracemalloc", "--tracemalloc"))
+    for bench_type, flag in benches:
         output_file = "result.%s.%s.json" % (bench_type, commit_info["sha"])
         test_cmd = [
             "python",
@@ -191,6 +196,10 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info):
 @click.option(
     "--randomize/--no-randomize", default=True, help="Randomize order of commits"
 )
+@click.option("--timing/--no-timing", default=True, help="Run timing benchmarks")
+@click.option(
+    "--tracemalloc/--no-tracemalloc", default=True, help="Run tracemalloc benchmarks"
+)
 def run(
     worktree,
     start_commit,
@@ -202,6 +211,8 @@ def run(
     delete_output_files,
     delete_repo,
     randomize,
+    timing,
+    tracemalloc,
 ):
     if clone_url:
         if not os.path.exists(worktree):
@@ -221,7 +232,7 @@ def run(
                 )
             )
         try:
-            files = run_benchmark(commit, worktree)
+            files = run_benchmark(commit, worktree, timing, tracemalloc)
             if es_url:
                 print("Uploading bench for commit {}".format(commit["sha"][:8]))
                 upload_benchmark(es_url, es_user, es_password, files, commit)
