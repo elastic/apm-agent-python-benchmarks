@@ -56,9 +56,13 @@ def get_commit_list(start_commit, end_commit, worktree):
     return commits
 
 
-def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern):
-    if commit_info:
-        subprocess.check_output(["git", "checkout", commit_info["sha"]], cwd=worktree)
+def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern, as_is):
+    if not as_is:
+        subprocess.check_output(
+            ["git", "checkout", commit_info["sha"]],
+            cwd=worktree,
+            stderr=subprocess.STDOUT,
+        )
     env = dict(**os.environ)
     env["PYTHONPATH"] = worktree
     env["COMMIT_TIMESTAMP"] = commit_info["@timestamp"]
@@ -207,6 +211,12 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info):
     default=None,
     help="An optional glob pattern to filter benchmarks by",
 )
+@click.option(
+    "--as-is",
+    default=False,
+    is_flag=True,
+    help="Run benchmark in current workdir without checking out a commit",
+)
 def run(
     worktree,
     start_commit,
@@ -221,12 +231,22 @@ def run(
     timing,
     tracemalloc,
     bench_pattern,
+    as_is,
 ):
+    if as_is and (start_commit or end_commit):
+        raise click.ClickException(
+            "--as-is can not be used with --start-commit and/or --end-commit"
+        )
     if clone_url:
         if not os.path.exists(worktree):
             subprocess.check_output(["git", "clone", clone_url, worktree])
-    subprocess.check_output(["git", "fetch"], cwd=worktree)
-    subprocess.check_output(["git", "checkout", "master"], cwd=worktree)
+    if not as_is:
+        subprocess.check_output(
+            ["git", "fetch"], cwd=worktree, stderr=subprocess.STDOUT
+        )
+        subprocess.check_output(
+            ["git", "checkout", "master"], cwd=worktree, stderr=subprocess.STDOUT
+        )
     commits = get_commit_list(start_commit, end_commit, worktree)
     json_files = []
     failed = []
@@ -240,13 +260,14 @@ def run(
                 )
             )
         try:
-            files = run_benchmark(commit, worktree, timing, tracemalloc, bench_pattern)
+            files = run_benchmark(
+                commit, worktree, timing, tracemalloc, bench_pattern, as_is
+            )
             if es_url:
                 print("Uploading bench for commit {}".format(commit["sha"][:8]))
                 upload_benchmark(es_url, es_user, es_password, files, commit)
             json_files.extend(files)
         except Exception:
-            raise
             failed.append(commit["sha"])
     if delete_repo:
         shutil.rmtree(worktree)
