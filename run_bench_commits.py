@@ -19,26 +19,37 @@ BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def get_commit_list(start_commit, end_commit, worktree):
-    commit_range = "%s..%s" % (start_commit, end_commit)
-    commits = subprocess.check_output(
-        ["git", "log", "--pretty=%h", commit_range], cwd=worktree
-    ).decode("utf8")
+    if start_commit and end_commit:
+        commit_range = "%s..%s" % (start_commit, end_commit)
+        commits = subprocess.check_output(
+            ["git", "log", "--pretty=%h", commit_range], cwd=worktree
+        ).decode("utf8")
+    elif start_commit:
+        commits = subprocess.check_output(
+            ["git", "log", "-1", start_commit, "--pretty=%h"], cwd=worktree
+        ).decode("utf8")
+    else:
+        commits = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=%h"], cwd=worktree
+        ).decode("utf8")
     commit_hashes = commits.split("\n")[:-1]
     commits = []
     for hash in commit_hashes:
-        timestamp, _, commit_message = (
+        timestamp, sha, author, subject, commit_message = (
             subprocess.check_output(
-                ["git", "log", hash, "-1", "--pretty=%aI\t%H\t%B"], cwd=worktree
+                ["git", "log", hash, "-1", "--pretty=%aI\t%H\t%aE\t%s\t%b"],
+                cwd=worktree,
             )
             .decode("utf8")
-            .split("\t", 2)
+            .split("\t", 4)
         )
         commits.append(
             {
-                "sha": hash,
+                "sha": sha,
                 "@timestamp": timestamp,
-                "commit_title": commit_message.split("/n")[0],
-                "commit_message": commit_message,
+                "title": subject,
+                "message": commit_message,
+                "author": author,
             }
         )
     commits.reverse()
@@ -136,8 +147,10 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info):
         body={
             "doc": {
                 "@timestamp": commit_info["@timestamp"],
-                "commit_title": commit_info["commit_title"].split("\n")[0],
-                "commit_message": commit_info["commit_message"],
+                "shortref": commit_info["sha"][:8],
+                "title": commit_info["title"],
+                "body": commit_info["message"],
+                "author": commit_info["author"],
             },
             "doc_as_upsert": True,
         },
@@ -194,13 +207,8 @@ def run(
         if not os.path.exists(worktree):
             subprocess.check_output(["git", "clone", clone_url, worktree])
     subprocess.check_output(["git", "fetch"], cwd=worktree)
-    if start_commit:
-        if end_commit:
-            commits = get_commit_list(start_commit, end_commit, worktree)
-        else:
-            commits = [start_commit]
-    else:
-        commits = [None]
+    subprocess.check_output(["git", "checkout", "master"], cwd=worktree)
+    commits = get_commit_list(start_commit, end_commit, worktree)
     json_files = []
     failed = []
     if randomize:
