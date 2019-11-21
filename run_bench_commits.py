@@ -76,8 +76,27 @@ def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern, as_is):
         benches.append(("time", None))
     if tracemalloc:
         benches.append(("tracemalloc", "--tracemalloc"))
+    overwrite_all_files = False
     for bench_type, flag in benches:
         output_file = "result.%s.%s.json" % (bench_type, commit_info["sha"])
+        if os.path.exists(output_file):
+            if overwrite_all_files:
+                os.unlink(output_file)
+            else:
+                overwrite = click.prompt(
+                    "{} exists. Overwrite? (Y/n/all)".format(output_file)
+                )
+                if overwrite.lower() in ("", "y", "all"):
+                    os.unlink(output_file)
+                    if overwrite.lower() == "all":
+                        overwrite_all_files = True
+                else:
+                    print(
+                        "Skipped {} bench for {}".format(
+                            bench_type, commit_info["sha"][:8]
+                        )
+                    )
+                    continue
         test_cmd = [
             "python",
             "run_bench.py",
