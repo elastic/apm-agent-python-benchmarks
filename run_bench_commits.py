@@ -56,6 +56,9 @@ def get_commit_list(start_commit, end_commit, worktree):
     return commits
 
 
+OVERWRITE_ALL = False  # ugly way to store overall-overwrite-status
+
+
 def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern, as_is):
     if not as_is:
         subprocess.check_output(
@@ -84,12 +87,13 @@ def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern, as_is):
                 os.unlink(output_file)
             else:
                 overwrite = click.prompt(
-                    "{} exists. Overwrite? (Y/n/all)".format(output_file)
-                )
-                if overwrite.lower() in ("", "y", "all"):
+                    "{} exists. Overwrite? (y/n/all)".format(output_file), default="y"
+                ).lower()
+                if overwrite in ("", "y", "all"):
                     os.unlink(output_file)
-                    if overwrite.lower() == "all":
-                        overwrite_all_files = True
+                    if overwrite == "all":
+                        global OVERWRITE_ALL
+                        OVERWRITE_ALL = True
                 else:
                     print(
                         "Skipped {} bench for {}".format(
