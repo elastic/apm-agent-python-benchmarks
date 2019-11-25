@@ -60,4 +60,7 @@ and send the result to Elasticsearch:
                                       Run tracemalloc benchmarks
       --bench-pattern TEXT            An optional glob pattern to filter
                                       benchmarks by
+      --as-is                         Run benchmark in current workdir without
+                                      checking out a commit
+      --tag TEXT                      Specify tag as key=value
       --help                          Show this message and exit.

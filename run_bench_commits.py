@@ -120,7 +120,7 @@ def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern, as_is):
     return output_files
 
 
-def upload_benchmark(es_url, es_user, es_password, files, commit_info):
+def upload_benchmark(es_url, es_user, es_password, files, commit_info, tags):
     if "@" not in es_url and es_user:
         parts = urlparse(es_url)
         es_url = "%s://%s:%s@%s%s" % (
@@ -147,9 +147,11 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info):
                 result_factor = 1000
             else:
                 result_factor = 1
+            if tags:
+                meta["tags"] = tags
             full_name = meta.pop("name")
             class_name = full_name.rsplit(".", 1)[0]
-            short_name = class_name.rsplit(".", 1)[0]
+            short_name = class_name.rsplit(".", 1)[1]
             output = {
                 "_index": "benchmark-python",
                 "@timestamp": meta.pop("timestamp"),
@@ -240,6 +242,9 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info):
     is_flag=True,
     help="Run benchmark in current workdir without checking out a commit",
 )
+@click.option(
+    "--tag", multiple=True, help="Specify tag as key=value. Can be used multiple times."
+)
 def run(
     worktree,
     start_commit,
@@ -255,6 +260,7 @@ def run(
     tracemalloc,
     bench_pattern,
     as_is,
+    tag,
 ):
     if as_is and (start_commit or end_commit):
         raise click.ClickException(
@@ -271,6 +277,10 @@ def run(
             ["git", "checkout", "master"], cwd=worktree, stderr=subprocess.STDOUT
         )
     commits = get_commit_list(start_commit, end_commit, worktree)
+    if tag:
+        tags = {k: v for k, v in (item.split("=", 1) for item in tag)}
+    else:
+        tags = {}
     json_files = []
     failed = []
     if randomize:
@@ -288,7 +298,7 @@ def run(
             )
             if es_url:
                 print("Uploading bench for commit {}".format(commit["sha"][:8]))
-                upload_benchmark(es_url, es_user, es_password, files, commit)
+                upload_benchmark(es_url, es_user, es_password, files, commit, tags)
             json_files.extend(files)
         except Exception:
             failed.append(commit["sha"])
