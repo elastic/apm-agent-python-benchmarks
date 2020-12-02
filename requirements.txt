@@ -1,7 +1,7 @@
 click==7.0
 pyperf==1.6.1
 six==1.13.0
-urllib3==1.25.6
+urllib3==1.25.7
 certifi==2019.9.11
 elasticsearch==7.1.0
 python-dateutil==2.8.1
