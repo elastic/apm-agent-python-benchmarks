@@ -274,7 +274,7 @@ def run(
             ["git", "fetch"], cwd=worktree, stderr=subprocess.STDOUT
         )
         subprocess.check_output(
-            ["git", "checkout", "master"], cwd=worktree, stderr=subprocess.STDOUT
+            ["git", "checkout", "main"], cwd=worktree, stderr=subprocess.STDOUT
         )
     commits = get_commit_list(start_commit, end_commit, worktree)
     if tag:
