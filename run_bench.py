@@ -4,13 +4,12 @@ import importlib
 import operator
 import os
 import pkgutil
-import sys
-import time
 import tracemalloc
 
-import benchmarks
 import elasticapm
 import pyperf
+
+import benchmarks
 
 
 def discover_benchmarks():

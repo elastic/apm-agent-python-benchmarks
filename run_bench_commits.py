@@ -2,18 +2,11 @@ import os
 import random
 import shutil
 import subprocess
+from urllib.parse import urlparse
 
 import click
-
 import elasticsearch
 import pyperf
-
-try:
-    from urllib.request import Request, urlopen
-    from urllib.parse import urlparse
-except ImportError:
-    from urllib2 import Request, urlopen
-    from urllib.parse import urlparse
 
 BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -137,9 +130,6 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info, tags):
         for bench in suite:
             ncalibration_runs = sum(run._is_calibration() for run in bench._runs)
             nrun = bench.get_nrun()
-            loops = bench.get_loops()
-            inner_loops = bench.get_inner_loops()
-            total_loops = loops * inner_loops
             meta = bench.get_metadata()
             meta["start_date"] = bench.get_dates()[0].isoformat(" ")
             if meta["unit"] == "second":
@@ -302,6 +292,7 @@ def run(
             json_files.extend(files)
         except Exception:
             failed.append(commit["sha"])
+            raise
     if delete_repo:
         shutil.rmtree(worktree)
     if delete_output_files:
