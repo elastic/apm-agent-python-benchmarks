@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import shutil
@@ -7,6 +8,15 @@ from urllib.parse import urlparse
 import click
 import elasticsearch
 import pyperf
+
+LOG_LEVELS = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+}
+
+logger = logging.getLogger(__name__)
 
 BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -105,6 +115,7 @@ def run_benchmark(commit_info, worktree, timing, tracemalloc, pattern, as_is):
         if flag:
             test_cmd.append(flag)
         print(
+
             subprocess.check_output(
                 test_cmd, stderr=subprocess.STDOUT, env=env
             ).decode()
@@ -235,6 +246,9 @@ def upload_benchmark(es_url, es_user, es_password, files, commit_info, tags):
 @click.option(
     "--tag", multiple=True, help="Specify tag as key=value. Can be used multiple times."
 )
+@click.option(
+    "--log-level", default="INFO", help="Log level", type=click.Choice(LOG_LEVELS.keys())
+)
 def run(
     worktree,
     start_commit,
@@ -251,7 +265,9 @@ def run(
     bench_pattern,
     as_is,
     tag,
+    log_level,
 ):
+    logging.basicConfig(level=LOG_LEVELS[log_level])
     if as_is and (start_commit or end_commit):
         raise click.ClickException(
             "--as-is can not be used with --start-commit and/or --end-commit"
@@ -290,9 +306,12 @@ def run(
                 print("Uploading bench for commit {}".format(commit["sha"][:8]))
                 upload_benchmark(es_url, es_user, es_password, files, commit, tags)
             json_files.extend(files)
+        except subprocess.CalledProcessError as exc:
+            failed.append(commit["sha"])
+            logger.error(f"Commit {commit['sha']} failed. Output of runbench.py: \n{exc.output.decode()}")
         except Exception:
             failed.append(commit["sha"])
-            raise
+            logger.exception(f"Commit {commit['sha']} failed")
     if delete_repo:
         shutil.rmtree(worktree)
     if delete_output_files:
