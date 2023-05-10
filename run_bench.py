@@ -6,7 +6,8 @@ import os
 import pkgutil
 import tracemalloc
 
-import elasticapm
+# This is handled via PYTHONPATH at runtime
+import elasticapm  # type: ignore
 import pyperf
 
 import benchmarks
