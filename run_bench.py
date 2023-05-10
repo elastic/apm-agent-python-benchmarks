@@ -4,13 +4,13 @@ import importlib
 import operator
 import os
 import pkgutil
-import sys
-import time
 import tracemalloc
 
-import benchmarks
-import elasticapm
+# This is handled via PYTHONPATH at runtime
+import elasticapm  # type: ignore
 import pyperf
+
+import benchmarks
 
 
 def discover_benchmarks():
