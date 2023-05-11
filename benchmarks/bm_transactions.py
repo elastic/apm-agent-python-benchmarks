@@ -1,10 +1,6 @@
-import elasticapm
-from benchmarks.decorators import with_elasticapm_client
+from elasticapm import capture_span
 
-try:
-    from elasticapm import capture_span
-except ImportError:
-    from elasticapm import trace as capture_span
+from benchmarks.decorators import with_elasticapm_client
 
 
 @with_elasticapm_client()
@@ -25,7 +21,3 @@ def bench_transaction_spans(client):
             with capture_span("test3"):
                 pass
     client.end_transaction("test", "OK")
-
-
-def bench_init():
-    client = elasticapm.Client()

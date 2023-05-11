@@ -3,7 +3,7 @@ click==8.1.3
 elastic-transport==8.4.0
 elasticsearch==8.3.0
 psutil==5.9.5
-pyperf==2.6.0
+pyperf==2.3.1
 python-dateutil==2.8.2
 urllib3==1.26.15
 wrapt==1.15.0
